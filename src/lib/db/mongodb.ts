@@ -242,25 +242,65 @@ export async function seedMongoIfEmpty(initial: {
     let seeded = false;
 
     if (tracesCount === 0 && initial.traces.length > 0) {
-      await db.collection('traces').insertMany(initial.traces as any[]);
+      const ops = initial.traces.map(({ ...doc }) => {
+        const { _id, ...rest } = doc as any;
+        return {
+          updateOne: {
+            filter: { id: rest.id },
+            update: { $set: rest },
+            upsert: true,
+          },
+        };
+      });
+      await db.collection('traces').bulkWrite(ops);
       seeded = true;
     }
 
     const secCount = await db.collection('security_events').countDocuments();
     if (secCount === 0 && initial.securityEvents.length > 0) {
-      await db.collection('security_events').insertMany(initial.securityEvents as any[]);
+      const ops = initial.securityEvents.map(({ ...doc }) => {
+        const { _id, ...rest } = doc as any;
+        return {
+          updateOne: {
+            filter: { id: rest.id },
+            update: { $set: rest },
+            upsert: true,
+          },
+        };
+      });
+      await db.collection('security_events').bulkWrite(ops);
       seeded = true;
     }
 
     const evalCount = await db.collection('evaluations').countDocuments();
     if (evalCount === 0 && initial.evaluations.length > 0) {
-      await db.collection('evaluations').insertMany(initial.evaluations as any[]);
+      const ops = initial.evaluations.map(({ ...doc }) => {
+        const { _id, ...rest } = doc as any;
+        return {
+          updateOne: {
+            filter: { id: rest.id },
+            update: { $set: rest },
+            upsert: true,
+          },
+        };
+      });
+      await db.collection('evaluations').bulkWrite(ops);
       seeded = true;
     }
 
     const polCount = await db.collection('policies').countDocuments();
     if (polCount === 0 && initial.policies.length > 0) {
-      await db.collection('policies').insertMany(initial.policies as any[]);
+      const ops = initial.policies.map(({ ...doc }) => {
+        const { _id, ...rest } = doc as any;
+        return {
+          updateOne: {
+            filter: { id: rest.id },
+            update: { $set: rest },
+            upsert: true,
+          },
+        };
+      });
+      await db.collection('policies').bulkWrite(ops);
       seeded = true;
     }
 
