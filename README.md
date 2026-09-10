@@ -45,6 +45,11 @@ AgentShield enforces the **Fail-Closed Security Principle**: untrusted or ungrou
 ---
 
 ## 4. Architecture Overview
+
+![AgentShield Runtime Architecture](docs/architecture-diagram.png)
+
+*Detailed technical documentation and vector graphics: [System Architecture Guide](docs/ARCHITECTURE.md) • [Vector Diagram (SVG)](docs/architecture-diagram.svg)*
+
 ```
                          +-----------------------------+
                          |      User / Client App      |

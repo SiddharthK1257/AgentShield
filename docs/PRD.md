@@ -15,6 +15,11 @@ Current solutions either rely on coarse post-hoc observability dashboards (which
 
 **AgentShield** solves this through a high-speed runtime trust gateway. By integrating the **Moss zero-latency retrieval engine** with deterministic multi-stage guardrails, AgentShield validates user queries, retrieved context chunks, tool calls, and model outputs in **under 10 milliseconds**, enforcing an explainable **ALLOW / WARN / BLOCK / REVIEW** policy decision before any decision reaches the user.
 
+> **Architecture Reference:**  
+> • [System Architecture Specification](file:///D:/AgentShield/docs/ARCHITECTURE.md)  
+> • [Vector Architecture Diagram (SVG)](file:///D:/AgentShield/docs/architecture-diagram.svg)  
+> • [High-Resolution Architecture Diagram (PNG)](file:///D:/AgentShield/docs/architecture-diagram.png)
+
 ---
 
 ## 2. Target Users & Personas
