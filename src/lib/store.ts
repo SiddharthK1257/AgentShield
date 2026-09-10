@@ -7,15 +7,31 @@ import {
 } from './types';
 import { calculatePercentiles } from './observability/tracer';
 import { DEFAULT_POLICIES } from './security/policies';
+import {
+  isMongoConfigured,
+  persistTrace,
+  persistSecurityEvent,
+  persistEvaluation,
+  persistPolicy,
+  loadInitialCollections,
+  seedMongoIfEmpty,
+} from './db/mongodb';
 
 class InMemoryDataStore {
   private traces: TraceRecord[] = [];
   private evaluations: EvaluationRecord[] = [];
   private securityEvents: SecurityEvent[] = [];
   private policies: GuardrailPolicy[] = [...DEFAULT_POLICIES];
+  private isMongoSyncing: boolean = false;
 
   constructor() {
     this.seedInitialData();
+    // Non-blocking background sync with MongoDB Atlas if configured
+    if (typeof window === 'undefined') {
+      this.initMongo().catch((err) => {
+        console.warn('[DataStore] Mongo init skipped/failed:', err?.message || err);
+      });
+    }
   }
 
   private seedInitialData() {
@@ -231,11 +247,69 @@ class InMemoryDataStore {
     ];
   }
 
+  // --- MONGODB HYBRID SYNC & INITIALIZATION ---
+  public async initMongo(): Promise<{ connected: boolean; message: string }> {
+    if (!isMongoConfigured() || this.isMongoSyncing) {
+      return { connected: false, message: 'MongoDB not configured or already syncing' };
+    }
+
+    this.isMongoSyncing = true;
+    try {
+      const existing = await loadInitialCollections();
+      if (existing && (existing.traces.length > 0 || existing.securityEvents.length > 0 || existing.evaluations.length > 0)) {
+        // Merge MongoDB records with in-memory store (preferring recent IDs)
+        const traceMap = new Map<string, TraceRecord>();
+        [...existing.traces, ...this.traces].forEach((t) => traceMap.set(t.id, t));
+        this.traces = Array.from(traceMap.values()).sort(
+          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        ).slice(0, 200);
+
+        const secMap = new Map<string, SecurityEvent>();
+        [...existing.securityEvents, ...this.securityEvents].forEach((e) => secMap.set(e.id, e));
+        this.securityEvents = Array.from(secMap.values()).sort(
+          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        ).slice(0, 200);
+
+        const evalMap = new Map<string, EvaluationRecord>();
+        [...existing.evaluations, ...this.evaluations].forEach((e) => evalMap.set(e.id, e));
+        this.evaluations = Array.from(evalMap.values()).sort(
+          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        ).slice(0, 200);
+
+        if (existing.policies.length > 0) {
+          this.policies = existing.policies;
+        }
+
+        console.log(`[MongoDB] Hydrated ${this.traces.length} traces, ${this.securityEvents.length} events from Atlas`);
+        return { connected: true, message: 'Hydrated successfully from MongoDB Atlas' };
+      } else {
+        // Seed MongoDB Atlas with initial data
+        const res = await seedMongoIfEmpty({
+          traces: this.traces,
+          securityEvents: this.securityEvents,
+          evaluations: this.evaluations,
+          policies: this.policies,
+        });
+        console.log(`[MongoDB] Seeded Atlas collections with initial telemetry`);
+        return { connected: true, message: 'Seeded initial telemetry to MongoDB Atlas' };
+      }
+    } catch (err: any) {
+      console.warn('[MongoDB] Init error:', err?.message || err);
+      return { connected: false, message: err?.message || 'Sync failed' };
+    } finally {
+      this.isMongoSyncing = false;
+    }
+  }
+
   // --- TRACES ---
   public addTrace(trace: TraceRecord) {
     this.traces.unshift(trace);
     if (this.traces.length > 200) {
       this.traces.pop();
+    }
+    // Write-through to MongoDB Atlas asynchronously
+    if (isMongoConfigured()) {
+      persistTrace(trace).catch((err) => console.warn('[MongoDB] persistTrace failed:', err));
     }
   }
 
@@ -253,6 +327,10 @@ class InMemoryDataStore {
     if (this.securityEvents.length > 200) {
       this.securityEvents.pop();
     }
+    // Write-through to MongoDB Atlas asynchronously
+    if (isMongoConfigured()) {
+      persistSecurityEvent(event).catch((err) => console.warn('[MongoDB] persistSecurityEvent failed:', err));
+    }
   }
 
   public getSecurityEvents(filterSeverity?: string): SecurityEvent[] {
@@ -267,6 +345,10 @@ class InMemoryDataStore {
     this.evaluations.unshift(evaluation);
     if (this.evaluations.length > 200) {
       this.evaluations.pop();
+    }
+    // Write-through to MongoDB Atlas asynchronously
+    if (isMongoConfigured()) {
+      persistEvaluation(evaluation).catch((err) => console.warn('[MongoDB] persistEvaluation failed:', err));
     }
   }
 
@@ -287,13 +369,20 @@ class InMemoryDataStore {
     const idx = this.policies.findIndex((p) => p.id === id);
     if (idx !== -1) {
       this.policies[idx] = { ...this.policies[idx], ...updates };
-      return this.policies[idx];
+      const updated = this.policies[idx];
+      if (isMongoConfigured()) {
+        persistPolicy(updated).catch((err) => console.warn('[MongoDB] persistPolicy failed:', err));
+      }
+      return updated;
     }
     return null;
   }
 
   public createPolicy(policy: GuardrailPolicy): GuardrailPolicy {
     this.policies.push(policy);
+    if (isMongoConfigured()) {
+      persistPolicy(policy).catch((err) => console.warn('[MongoDB] createPolicy failed:', err));
+    }
     return policy;
   }
 

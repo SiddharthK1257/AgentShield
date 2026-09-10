@@ -165,4 +165,50 @@ describe('AgentShield Core Verification Suite', () => {
     assert.strictEqual(score.breakdown.responseConfidence, 84);
     assert.ok(score.explanation.length >= 7, 'Explanation should detail each of the 7 signals');
   });
+
+  test('11. MongoDB database configuration and health check logic operates reliably', async () => {
+    const { isMongoConfigured, getMongoDbName, checkMongoConnection } = await import('../src/lib/db/mongodb');
+    const dbName = getMongoDbName();
+    assert.strictEqual(dbName, 'agentshield', 'Default or configured dbName should be agentshield');
+    
+    // Connection check should return a structured status without throwing
+    const status = await checkMongoConnection();
+    assert.ok(typeof status.connected === 'boolean', 'Connected status must be boolean');
+    assert.strictEqual(status.dbName, 'agentshield');
+    assert.ok(typeof status.latencyMs === 'number', 'Latency must be numeric');
+  });
+
+  test('12. Dual-mode store write-through adds traces and updates policies seamlessly', async () => {
+    const { dataStore } = await import('../src/lib/store');
+    const initialTraces = dataStore.getTraces().length;
+    
+    const testTrace: any = {
+      id: 'TRC-TEST-001',
+      timestamp: new Date().toISOString(),
+      query: 'Automated test query for store persistence',
+      decision: 'ALLOW',
+      totalLatencyMs: 4.5,
+      retrievalLatencyMs: 1.0,
+      guardrailLatencyMs: 1.2,
+      evaluationLatencyMs: 0.5,
+      llmLatencyMs: 1.8,
+      toolLatencyMs: 0,
+      spans: [],
+      status: 'COMPLETED',
+      reliabilityScore: 95,
+    };
+
+    dataStore.addTrace(testTrace);
+    const updatedTraces = dataStore.getTraces();
+    assert.strictEqual(updatedTraces.length, initialTraces + 1, 'Trace should be immediately stored in-memory');
+    assert.strictEqual(updatedTraces[0].id, 'TRC-TEST-001', 'Newest trace should be first');
+
+    // Verify policy updates
+    const policies = dataStore.getPolicies();
+    assert.ok(policies.length > 0, 'Policies must exist');
+    const firstPolicy = policies[0];
+    const updated = dataStore.updatePolicy(firstPolicy.id, { description: 'Updated via test suite' });
+    assert.ok(updated, 'Policy should be updated');
+    assert.strictEqual(updated?.description, 'Updated via test suite');
+  });
 });

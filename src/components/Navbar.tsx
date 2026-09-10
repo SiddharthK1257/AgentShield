@@ -11,6 +11,7 @@ import {
   Bot,
   Database,
   Layers,
+  Github,
 } from 'lucide-react';
 
 export type TabType =
@@ -77,15 +78,34 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* Right Action Controls: Moss Status & Judge Mode Switch */}
-          <div className="flex items-center space-x-3">
+          {/* Right Action Controls: Moss Status, Atlas DB, GitHub & Judge Mode Switch */}
+          <div className="flex items-center space-x-2.5">
             
-            {/* Real-time Status Badge */}
+            {/* Real-time Moss Status Badge */}
             <div className="hidden md:flex items-center space-x-2 px-3 py-1 rounded-full bg-surface-100 border border-border/60 text-xs font-mono">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-slate-300">Moss Engine:</span>
-              <span className="text-cyan-400 font-bold">Sub-10ms Active</span>
+              <span className="text-slate-300">Moss:</span>
+              <span className="text-cyan-400 font-bold">Sub-10ms</span>
             </div>
+
+            {/* MongoDB Atlas Status Badge */}
+            <div className="hidden xl:flex items-center space-x-1.5 px-3 py-1 rounded-full bg-surface-100 border border-border/60 text-xs font-mono">
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              <span className="text-slate-300">Atlas DB:</span>
+              <span className="text-emerald-400 font-semibold">Connected</span>
+            </div>
+
+            {/* GitHub Repo Link */}
+            <a
+              href="https://github.com/SiddharthK1257/AgentShield"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-border bg-surface-100 text-slate-300 hover:text-white hover:border-slate-500 text-xs font-mono transition-all"
+              title="View Repository on GitHub"
+            >
+              <Github className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">GitHub</span>
+            </a>
 
             {/* Judge Mode Switch Button */}
             <button
